@@ -227,16 +227,20 @@ class EC2Driver
         raise "secret_access_key not defined for #{host}" if @region['secret_access_key'].nil?
         raise "region_name not defined for #{host}" if @region['region_name'].nil?
 
-        AWS.config(
-            'access_key_id'     => @region['access_key_id'],
-            'secret_access_key' => @region['secret_access_key'],
-            'region'            => @region['region_name'])
+
+       config_hash = {
+          region: @region['region_name'],
+          credentials: Aws::Credentials.new(@region['access_key_id'], 
+                                            @region['secret_access_key'])
+        }
 
         if (proxy_uri = public_cloud_ec2_conf['proxy_uri'])
-            AWS.config(:proxy_uri => proxy_uri)
+           config_hash[:http_proxy] = proxy_uri
         end
 
-        @ec2 = AWS.ec2
+        Aws.config.update(config_hash)
+
+        @ec2 = Aws::EC2::Resource.new(config_hash)
     end
 
     # DEPLOY action, also sets ports and ip if needed
@@ -279,7 +283,7 @@ class EC2Driver
         end
 
         begin
-            instance = AWS.ec2.instances.create(opts)
+            instance = @ec2.instance.create(opts)
         rescue => e
             STDERR.puts(e.message)
             exit(-1)
@@ -408,8 +412,8 @@ class EC2Driver
         vpool.each{|vm| onevm_info[vm.deploy_id] = vm }
 
         begin
-            AWS.ec2.instances.each do |i|
-                next if i.status != :pending && i.status != :running
+            @ec2.instances.each do |i|
+                next if i.state.name != :pending && i.state.name != :running
 
                 one_id = i.tags['ONE_ID']
 
@@ -546,7 +550,7 @@ private
                 if !value.nil? && !value.empty?
                     if value.is_a?(Array)
                         value = value.map {|v|
-                            v.security_group_id if v.is_a?(AWS::EC2::SecurityGroup)
+                            v.security_group_id if v.is_a?(Aws::EC2::SecurityGroup)
                         }.join(",")
                     end
 
@@ -652,7 +656,7 @@ private
     # Retrive the instance from EC2
     def get_instance(id)
         begin
-            instance = AWS.ec2.instances[id]
+            instance = @ec2.instances[id]
             if instance.exists?
                 return instance
             else
@@ -692,7 +696,7 @@ private
     # Extract monitoring information from Cloud Watch
     # CPU, NETTX and NETRX
     def cloudwatch_monitor_info(id, onevm, cw_mon_time)
-        cw=AWS::CloudWatch::Client.new
+        cw=Aws::CloudWatch::Client.new
 
         # CPU
         begin
