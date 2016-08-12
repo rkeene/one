@@ -243,92 +243,121 @@ class EC2Driver
 
     # DEPLOY action, also sets ports and ip if needed
     def deploy(id, host, xml_text, lcm_state, deploy_id)
-      if lcm_state == "BOOT" || lcm_state == "BOOT_FAILURE"
-        ec2_info = get_deployment_info(host, xml_text)
+        if lcm_state == "BOOT" || lcm_state == "BOOT_FAILURE"
+            ec2_info = get_deployment_info(host, xml_text)
 
-        load_default_template_values
+            load_default_template_values
 
-        if !ec2_value(ec2_info, 'AMI')
-            STDERR.puts("Cannot find AMI in deployment file")
-            exit(-1)
-        end
+            if !ec2_value(ec2_info, 'AMI')
+                STDERR.puts("Cannot find AMI in deployment file")
+                exit(-1)
+            end
 
-        opts = generate_options(:run, ec2_info, {
+            opts = generate_options(:run, ec2_info, {
                 :min_count => 1,
                 :max_count => 1})
 
-        # The OpenNebula context will be only included if not USERDATA
-        #   is provided by the user
-        if !ec2_value(ec2_info, 'USERDATA')
-            xml = OpenNebula::XMLElement.new
-            xml.initialize_xml(xml_text, 'VM')
+            # The OpenNebula context will be only included if not USERDATA
+            #   is provided by the user
+            if !ec2_value(ec2_info, 'USERDATA')
+                xml = OpenNebula::XMLElement.new
+                xml.initialize_xml(xml_text, 'VM')
 
-            if xml.has_elements?('TEMPLATE/CONTEXT')
-                # Since there is only 1 level ',' will not be added
-                context_str = xml.template_like_str('TEMPLATE/CONTEXT')
+                if xml.has_elements?('TEMPLATE/CONTEXT')
+                    # Since there is only 1 level ',' will not be added
+                    context_str = xml.template_like_str('TEMPLATE/CONTEXT')
 
-                if xml['TEMPLATE/CONTEXT/TOKEN'] == 'YES'
-                    # TODO use OneGate library
-                    token_str = generate_onegate_token(xml)
-                    if token_str
-                        context_str << "\nONEGATE_TOKEN=\"#{token_str}\""
+                    if xml['TEMPLATE/CONTEXT/TOKEN'] == 'YES'
+                        # TODO use OneGate library
+                        token_str = generate_onegate_token(xml)
+                        if token_str
+                            context_str << "\nONEGATE_TOKEN=\"#{token_str}\""
+                        end
                     end
+
+                    userdata_key = EC2[:run][:args]["USERDATA"][:opt]
+                    opts[userdata_key] = Base64.encode64(context_str)
+                end
+            end
+
+            begin
+                instance = AWS.ec2.instances.create(opts)
+            rescue => e
+                exception_error = e.message.gsub("\n","; ")
+
+                instance_id   = instance.id rescue nil
+                instance_id_s = instance_id || "nil"
+
+                error_msg = "Failed instance create (instance_id=#{instance_id_s}): #{exception_error}"
+                OpenNebula::log_error error_msg
+
+                if instance_id
+                    OpenNebula::log_error "Cancelling instance."
+                    cancel(instance_id)
                 end
 
-                userdata_key = EC2[:run][:args]["USERDATA"][:opt]
-                opts[userdata_key] = Base64.encode64(context_str)
-            end
-        end
-
-        index = 0
-
-        while index < 5
-            begin
-                instance.status
-            rescue
-            end
-            sleep 2
-            index = index + 1
-        end
-
-        begin
-            instance = AWS.ec2.instances.create(opts)
-        rescue => e
-            STDERR.puts(e.message)
-            exit(-1)
-        end
-
-        tags = generate_options(:tags, ec2_info)['tags'] || {}
-
-        tags['ONE_ID'] = id
-        tags.each{ |key,value|
-            begin
-                instance.add_tag(key, :value => value)
-            rescue => e
-                STDERR.puts(e.message)
                 exit(-1)
             end
-        }
 
-        if ec2_value(ec2_info, 'ELASTICIP')
-            begin
-                start_time = Time.now
-                while instance.status == :pending
-                    break if Time.now - start_time > @state_change_timeout
-                    sleep 5
+            status_success = false
+            index = 0
+            while index < 5 && status_success == false
+                begin
+                    instance.status
+                rescue
+                    OpenNebula::log_info "Retrying status check"
+                    sleep 2
+                else
+                    status_success = true
                 end
-                instance.associate_elastic_ip(ec2_value(ec2_info, 'ELASTICIP'))
-            rescue => e
-                STDERR.puts(e.message)
+                index = index + 1
+            end
+
+            if !status_success
+                OpenNebula::log_error "Giving up, could not get status. Trying to cancel instance"
+
+                instance_id = instance.id rescue nil
+
+                if instance_id
+                    OpenNebula::log_error "Cancelling instance #{instance_id}"
+                    cancel(instance_id)
+                else
+                    OpenNebula::log_error "Did not get an instance id."
+                end
+
                 exit(-1)
             end
-        end
 
-        puts(instance.id)
-      else
-        restore(deploy_id)
-        deploy_id
-      end
+            tags = generate_options(:tags, ec2_info)['tags'] || {}
+
+            tags['ONE_ID'] = id
+            tags.each{ |key,value|
+                begin
+                    instance.add_tag(key, :value => value)
+                rescue => e
+                    STDERR.puts(e.message)
+                    exit(-1)
+                end
+            }
+
+            if ec2_value(ec2_info, 'ELASTICIP')
+                begin
+                    start_time = Time.now
+                    while instance.status == :pending
+                        break if Time.now - start_time > @state_change_timeout
+                        sleep 5
+                    end
+                    instance.associate_elastic_ip(ec2_value(ec2_info, 'ELASTICIP'))
+                rescue => e
+                    STDERR.puts(e.message)
+                    exit(-1)
+                end
+            end
+            puts(instance.id)
+        else
+            restore(deploy_id)
+            deploy_id
+        end
     end
 
     # Shutdown a EC2 instance
