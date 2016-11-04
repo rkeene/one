@@ -625,13 +625,8 @@ int VirtualNetwork::nic_attribute(
         nic->replace("PARENT_NETWORK_ID", parent_vid);
     }
 
-    target = nic->vector_value("TARGET");
-
-    if (target.empty())
-    {
-        oss << "one-" << vid << "-" << nic->vector_value("NIC_ID");
-        nic->replace("TARGET", oss.str());
-    }
+    oss << "one-" << vid << "-" << nic->vector_value("NIC_ID");
+    nic->replace("TARGET", oss.str());
 
     set<int> cluster_ids = get_cluster_ids();
 
