@@ -37,7 +37,8 @@ class OpenNebula::X509Auth
     X509_AUTH_CONF_PATH = ETC_LOCATION + "/auth/x509_auth.conf"
 
     X509_DEFAULTS = {
-        :ca_dir   => ETC_LOCATION + "/auth/certificates"
+        :ca_file  => ETC_LOCATION + "/auth/certificate-ca-file",
+        :crl_file => ETC_LOCATION + "/auth/certificate-crl-file"
     }
 
     def self.escape_dn(dn)
@@ -56,8 +57,10 @@ class OpenNebula::X509Auth
     #         cert chain array in colon-separated pem format
     # @option options [String] :key_pem
     #         key in pem format
-    # @option options [String] :ca_dir
-    #         directory of trusted CA's. Needed for auth method, not for login.
+    # @option options [String] :ca_file
+    #         Certificate authorities in a single PEM file
+    # @option options [String] :crl_file
+    #         Certificate authorities CRLs in a single PEM file
     def initialize(options={})
         @options ||= X509_DEFAULTS
         @options.merge!(options)
@@ -118,19 +121,13 @@ class OpenNebula::X509Auth
 
             return "x509 proxy expired"  if Time.now.to_i >= expires.to_i
 
-            # Some DN in the chain must match a DN in the password
-            dn_ok = @cert_chain.each do |cert|
-                if pass.split('|').include?(
-                        self.class.escape_dn(cert.subject.to_s))
-                    break true
-                end
-            end
+            validate
 
-            unless dn_ok == true
+            userCheck = %x("opennebula-user-cert" "#{@cert_chain[0].to_pem()}").chomp()
+
+            if userCheck != user
                 return "Certificate subject missmatch"
             end
-
-            validate
 
             return true
         rescue => e
@@ -168,91 +165,18 @@ private
     # Validate the user certificate
     ###########################################################################
     def validate
-        now    = Time.now
+        certStore = OpenSSL::X509::Store.new()
 
-        # Check start time and end time of certificates
-        @cert_chain.each do |cert|
-            if cert.not_before > now || cert.not_after < now
-                raise failed +  "Certificate not valid. Current time is " +
-                  now.localtime.to_s + "."
-            end
+        certStore.add_file(@options[:ca_file])
+
+        if File.exists?(@options[:crl_file])
+            certStore.add_file(@options[:crl_file])
         end
 
-        begin
-            # Validate the proxy certifcates
-            signee = @cert_chain[0]
-
-            check_crl(signee)
-
-            @cert_chain[1..-1].each do |cert|
-                if !((signee.issuer.to_s == cert.subject.to_s) &&
-                     (signee.verify(cert.public_key)))
-                    raise  failed + signee.subject.to_s + " with issuer " +
-                           signee.issuer.to_s + " was not verified by " +
-                           cert.subject.to_s + "."
-                end
-                signee = cert
-            end
-
-            # Validate the End Entity certificate
-            if !@options[:ca_dir]
-                raise failed + "No certifcate authority directory was specified."
-            end
-
-            begin
-                ca_hash = signee.issuer.hash.to_s(16)
-                ca_path = @options[:ca_dir] + '/' + ca_hash + '.0'
-
-                ca_cert = OpenSSL::X509::Certificate.new(File.read(ca_path))
-
-                if !((signee.issuer.to_s == ca_cert.subject.to_s) &&
-                     (signee.verify(ca_cert.public_key)))
-                    raise  failed + signee.subject.to_s + " with issuer " +
-                           signee.issuer.to_s + " was not verified by " +
-                           ca_cert.subject.to_s + "."
-                end
-
-                signee = ca_cert
-            end while ca_cert.subject.to_s != ca_cert.issuer.to_s
-        rescue
-            raise
-        end
-    end
-
-    def check_crl(signee)
-        failed = "Could not validate user credentials: "
-
-        ca_hash = signee.issuer.hash.to_s(16)
-        ca_path = @options[:ca_dir] + '/' + ca_hash + '.0'
-
-        crl_path = @options[:ca_dir] + '/' + ca_hash + '.r0'
-
-        if !File.exist?(crl_path)
-            if @options[:check_crl]
-                raise failed + "CRL file #{crl_path} does not exist"
-            else
-                return
-            end
+        if !certStore.verify(@cert_chain[0])
+            raise Exception.new("Unable to validate cert: #{certStore.error_string}")
         end
 
-        ca_cert = OpenSSL::X509::Certificate.new( File.read(ca_path) )
-        crl_cert = OpenSSL::X509::CRL.new( File.read(crl_path) )
-
-        # First verify the CRL itself with its signer
-        unless crl_cert.verify( ca_cert.public_key ) then
-            raise failed + "CRL is not verified by its Signer"
-        end
-
-        # Extract the list of revoked certificates from the CRL
-        rc_array = crl_cert.revoked
-
-        # Loop over the list and compare with the target personal
-        # certificate
-        rc_array.each do |e|
-            if e.serial.eql?(signee.serial) then
-                raise failed + "#{signee.subject.to_s} is found in the "<<
-                    "CRL, i.e. it is revoked"
-            end
-        end
+        return true
     end
 end
