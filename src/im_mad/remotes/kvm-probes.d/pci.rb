@@ -54,8 +54,8 @@ DEVICE_NAME   = []
 require 'shellwords'
 
 def get_pci(filter=nil)
-    command = "lspci -mmnn"
-    command << " -d #{filter}" if filter
+    # Disable this functionality as we do not support PCI passthrough
+    command = "true"
 
     text = %x(#{command})
 
