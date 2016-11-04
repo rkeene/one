@@ -93,6 +93,7 @@ int LibVirtDriver::deployment_description_kvm(
 
     int       num;
 
+    string  cpuModel;
     string  vcpu;
     float   cpu;
     int     memory;
@@ -251,6 +252,15 @@ int LibVirtDriver::deployment_description_kvm(
     // ------------------------------------------------------------------------
     // CPU & Memory
     // ------------------------------------------------------------------------
+
+    vm->get_template_attribute("CPU_MODEL", cpuModel);
+    if (cpuModel.empty()) {
+        get_default("CPU_MODEL", cpuModel);
+    }
+
+    if (!cpuModel.empty()) {
+        file << "\t<qemu:commandline><qemu:arg value='-cpu'/><qemu:arg value=" << one_util::escape_xml(cpuModel) << "/></qemu:commandline>" << endl;
+    }
 
     vm->get_template_attribute("VCPU", vcpu);
 
