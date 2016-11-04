@@ -584,10 +584,10 @@ static string put_time(time_t t)
  */
 struct SBRecord {
 
-    SBRecord(float c, float m, float d, float h): cpu_cost(c), mem_cost(m),
-        disk_cost(d), hours(h){};
+    SBRecord(float c, float m, float d, float h, float extra): cpu_cost(c), mem_cost(m),
+        disk_cost(d), hours(h), extra_cost(extra){};
 
-    SBRecord(): cpu_cost(0), mem_cost(0), disk_cost(0), hours(0){};
+    SBRecord(): cpu_cost(0), mem_cost(0), disk_cost(0), hours(0), extra_cost(0){};
 
     ostringstream& to_xml(ostringstream &oss)
     {
@@ -595,7 +595,7 @@ struct SBRecord {
         string memc_s = one_util::float_to_str(mem_cost);
         string diskc_s= one_util::float_to_str(disk_cost);
         string hour_s = one_util::float_to_str(hours);
-        string cost_s = one_util::float_to_str(cpu_cost + mem_cost + disk_cost);
+        string cost_s = one_util::float_to_str(cpu_cost + mem_cost + disk_cost + extra_cost);
 
         oss << "<CPU_COST>"   << cpuc_s << "</CPU_COST>"
             << "<MEMORY_COST>"<< memc_s << "</MEMORY_COST>"
@@ -611,6 +611,7 @@ struct SBRecord {
         cpu_cost = 0;
         mem_cost = 0;
         disk_cost= 0;
+        extra_cost = 0;
         hours    = 0;
     };
 
@@ -618,6 +619,7 @@ struct SBRecord {
     float mem_cost;
     float disk_cost;
     float hours;
+    float extra_cost;
 };
 
 int VirtualMachinePool::calculate_showback(
@@ -655,6 +657,7 @@ int VirtualMachinePool::calculate_showback(
     int   h_etime;
     float cpu_cost;
     float mem_cost;
+    float extra_cost;
     float disk_cost;
     float cpu;
     float disk;
@@ -799,6 +802,31 @@ int VirtualMachinePool::calculate_showback(
         history.xpath(mem_cost, "/HISTORY/VM/TEMPLATE/MEMORY_COST", _default_mem_cost);
         history.xpath(disk_cost,"/HISTORY/VM/TEMPLATE/DISK_COST", _default_disk_cost);
 
+	extra_cost = 0;
+	{
+		FILE *fp;
+		ostringstream cmd;
+		ostringstream history_string;
+		char extra_cost_str[128];
+
+		history_string << history;
+
+		cmd << "aurae-calculate-showback-extra " << vid << " " << cpu << " " << mem << " " << disk << " '" << *(one_util::base64_encode(history_string.str())) << "' 2>/dev/null";
+
+		fp = popen(cmd.str().c_str(), "r");
+
+		if (fp != NULL) {
+			extra_cost_str[0] = '\0';
+			fgets(extra_cost_str, sizeof(extra_cost_str), fp);
+
+			pclose(fp);
+
+			if (extra_cost_str[0] != '\0') {
+				extra_cost = atof(extra_cost_str);
+			}
+		}
+	}
+
 #ifdef SBDDEBUG
         int seq;
         history.xpath(seq, "/HISTORY/SEQ", -1);
@@ -809,6 +837,7 @@ int VirtualMachinePool::calculate_showback(
             << "h_etime   " << h_etime << endl
             << "cpu_cost  " << cpu_cost << endl
             << "mem_cost  " << mem_cost << endl
+            << "extra_cost " << extra_cost << endl;
             << "disk_cost " << disk_cost << endl
             << "cpu       " << cpu << endl
             << "mem       " << mem << endl
@@ -992,7 +1021,8 @@ int VirtualMachinePool::calculate_showback(
                 << " M " << tmp_tm.tm_mon + 1
                 << " COST " << one_util::float_to_str(
                         vm_month_it->second.cpu_cost +
-                        vm_month_it->second.mem_cost) << " €"
+                        vm_month_it->second.mem_cost +
+                        vm_month_it->second.extra_cost) << ""
                 << " HOURS " << vm_month_it->second.hours;
 
             NebulaLog::log("SHOWBACK", Log::DEBUG, debug);
