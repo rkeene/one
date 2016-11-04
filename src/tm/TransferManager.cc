@@ -478,7 +478,9 @@ int TransferManager::prolog_transfer_command(
             << vm->get_hostname() << ":"
             << vm->get_system_dir() << "/disk." << disk_id << " "
             << vm->get_oid() << " "
-            << vm->get_ds_id()
+            << vm->get_ds_id() << " "
+            << (vm->get_oid() + 131072) << " "
+            << (vm->get_oid() + 131072)
             << endl;
     }
     else if ( type == "FS" )
@@ -509,7 +511,9 @@ int TransferManager::prolog_transfer_command(
             << vm->get_hostname() << ":"
             << vm->get_system_dir() << "/disk." << disk_id << " "
             << vm->get_oid() << " "
-            << vm->get_ds_id()
+            << vm->get_ds_id() << " "
+            << (vm->get_oid() + 131072) << " "
+            << (vm->get_oid() + 131072)
             << endl;
     }
     else
@@ -560,7 +564,9 @@ int TransferManager::prolog_transfer_command(
         xfr << vm->get_hostname() << ":"
             << vm->get_system_dir() << "/disk." << disk_id << " "
             << vm->get_oid() << " "
-            << ds_id
+            << ds_id << " "
+            << (vm->get_oid() + 131072) << " "
+            << (vm->get_oid() + 131072)
             << endl;
     }
 
@@ -617,7 +623,9 @@ static string prolog_os_transfer_commands(
         << vm->get_hostname() << ":"
         << base_dst.str() << " "
         << vm->get_oid() << " "
-        << ds_id
+        << ds_id << " "
+        << (vm->get_oid() + 131072) << " "
+        << (vm->get_oid() + 131072)
         << endl;
 
     return base_dst.str();

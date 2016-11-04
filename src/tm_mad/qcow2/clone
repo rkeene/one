@@ -30,6 +30,9 @@ DST=$2
 VMID=$3
 DSID=$4
 
+VMUID="$5"
+VMGID="$6"
+
 if [ -z "${ONE_LOCATION}" ]; then
     TMCOMMON=/var/lib/one/remotes/tm/tm_common.sh
 else
@@ -92,11 +95,14 @@ ssh_make_path $DST_HOST $DST_DIR $MONITOR
 #-------------------------------------------------------------------------------
 # Clone (cp) SRC into DST
 #-------------------------------------------------------------------------------
+if [ -n "${VMUID}" -a -n "${VMGID}" ]; then
+    ADD_CMD=" && sudo chmod 600 $DST_PATH && sudo chown ${VMUID}:${VMGID} $DST_PATH"
+fi
 
 type="$(file -b --mime-type $SRC_PATH)"
 
 if [ "$type" == "application/x-iso9660-image" ]; then
-    CLONE_CMD="cp ${SRC_PATH} ${DST_PATH}"
+    CLONE_CMD="cp ${SRC_PATH} ${DST_PATH}${ADD_CMD}"
 else
     if [ -n "$ORIGINAL_SIZE" -a "$SIZE" -gt "$ORIGINAL_SIZE" ]; then
        RESIZE_CMD="qemu-img resize ${DST_PATH} ${SIZE}M"
@@ -120,6 +126,9 @@ cd ${DST_PATH}.snap
 ln -s . ${DST_PATH}.snap/${DST_FILE}.snap
 
 ${RESIZE_CMD}
+
+true${ADD_CMD}
+
 EOF
 )
 fi

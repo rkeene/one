@@ -242,6 +242,11 @@ int LibVirtDriver::deployment_description_kvm(
          << " xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>"
          << endl;
 
+    /* Domain user information */
+    file << "\t<seclabel type='static' model='dac'>" << endl;
+    file << "\t\t<label>+" << (vm->get_oid() + 131072) << ":+" << (vm->get_oid() + 131072) << "</label>" << endl;
+    file << "\t</seclabel>" << endl;
+
     // ------------------------------------------------------------------------
     // Domain name
     // ------------------------------------------------------------------------

@@ -31,13 +31,19 @@ DST=$3
 VMID=$4
 DSID=$5
 
+VMUID="$6"
+VMGID="$7"
+
 if [ -z "${ONE_LOCATION}" ]; then
     TMCOMMON=/var/lib/one/remotes/tm/tm_common.sh
+    KVMRC=/var/lib/one/remotes/vmm/kvm/kvmrc
 else
     TMCOMMON=$ONE_LOCATION/var/remotes/tm/tm_common.sh
+    KVMRC=$ONE_LOCATION/var/remotes/vmm/kvm/kvmrc
 fi
 
 . $TMCOMMON
+. $KVMRC
 
 #-------------------------------------------------------------------------------
 # Set dst path and dir
@@ -61,6 +67,15 @@ rc=\$?
 
 if [ "\$rc" != "0" ]; then
     rm -f $DST_PATH
+fi
+
+VMUID="${VMUID}"
+VMGID="${VMGID}"
+if [ -z "\${VMUID}" -o -z "\${VMGID}" ]; then
+    eval "\$(virsh -c $LIBVIRT_URI dumpxml one-$VMID | grep '<label>+.*:+.*</label>' | sed 's@.*<label>\(.*\)</label>@\1@;s@^+@VMUID=@;s@:+@; VMGID=@')"
+fi
+if [ -n "\${VMUID}" -a -n "\${VMGID}" ]; then
+  sudo chown "\${VMUID}:\${VMGID}" $DST_PATH
 fi
 
 exit \$rc

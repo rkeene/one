@@ -36,7 +36,7 @@ if [ -f "$FILE" ]; then
 fi
 
 touch "$FILE"
-chmod 666 "$FILE"
+chmod 600 "$FILE"
 
 exec_and_log "virsh --connect $LIBVIRT_URI save $DEPLOY_ID $FILE" \
     "Could not save $DEPLOY_ID to $FILE"

@@ -328,6 +328,8 @@ function mkfs_command {
     if [ "$FSTYPE" = "swap" ]; then
         echo "$MKSWAP -L swap $DST"
     fi
+
+    echo "test -e '${DST}' && chmod 600 '${DST}'"
 }
 
 #This function executes $2 at $1 host and report error $3 but does not exit

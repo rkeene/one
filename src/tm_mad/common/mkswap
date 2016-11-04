@@ -29,4 +29,7 @@ DST=$2
 VMID=$3
 DSID=$4
 
-`dirname $0`/mkimage $SIZE swap $DST $VMID $DSID
+VMUID="$5"
+VMGID="$6"
+
+`dirname $0`/mkimage $SIZE swap $DST $VMID $DSID $VMUID $VMGID

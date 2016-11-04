@@ -28,6 +28,10 @@ DEPLOY_ID=$3
 VM_ID=$4
 DS_ID=$5
 
+# This computation is a duplicate of what is performed in LibVirtDriverKVM.cc
+vmuid=$[131072+$VM_ID]
+vmgid="${vmuid}"
+
 FILE_XML=${FILE}.xml
 
 #-------------------------------------------------------------------------------
