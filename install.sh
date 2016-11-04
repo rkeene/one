@@ -1521,8 +1521,7 @@ SUNSTONE_VIEWS_FILES="src/sunstone/views/index.erb \
 
 SUNSTONE_PUBLIC_JS_FILES="src/sunstone/public/dist/login.js \
                         src/sunstone/public/dist/login.js.map \
-                        src/sunstone/public/dist/main.js \
-                        src/sunstone/public/dist/main.js.map"
+                        src/sunstone/public/dist/main.js"
 
 SUNSTONE_PUBLIC_JS_CONSOLE_FILES="src/sunstone/public/dist/console/vnc.js \
                         src/sunstone/public/dist/console/vnc.js.map \

@@ -313,6 +313,7 @@ function force_shutdown {
 # This function will return a command that upon execution will format a
 # filesystem with its proper parameters based on the filesystem type
 function mkfs_command {
+    local DST FSTYPE SIZE
     DST=$1
     FSTYPE=$2
     SIZE=${3:-0}
@@ -324,10 +325,6 @@ function mkfs_command {
     fi
 
     echo "$QEMU_IMG create -f ${QEMU_FORMAT} ${DST} ${SIZE}M"
-
-    if [ "$FSTYPE" = "swap" ]; then
-        echo "$MKSWAP -L swap $DST"
-    fi
 }
 
 #This function executes $2 at $1 host and report error $3 but does not exit

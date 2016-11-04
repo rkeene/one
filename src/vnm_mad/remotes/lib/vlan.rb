@@ -37,6 +37,8 @@ module VNMMAD
 
             process do |nic|
                 @nic = nic
+                @nic[:bridge] = "u-#{@nic[:bridge]}"
+                @nic[:phydev] = "bond0"
 
                 next if @nic[:phydev].nil?
 
@@ -55,6 +57,7 @@ module VNMMAD
                 # Add vlan device to the bridge.
                 OpenNebula.exec_and_log("#{command(:brctl)} addif"\
                     " #{@nic[:bridge]} #{@nic[:vlan_dev]}")
+                OpenNebula.exec_and_log("sudo configure-one-bridge #{@nic[:bridge]} #{@nic[:vlan_dev]}")
 
                 @bridges[@nic[:bridge]] << @nic[:vlan_dev]
             end
@@ -84,6 +87,8 @@ module VNMMAD
                 next if attach_nic_id && attach_nic_id != nic[:nic_id]
 
                 @nic = nic
+                @nic[:bridge] = "u-#{@nic[:bridge]}"
+                @nic[:phydev] = "bond0"
 
                 next if @nic[:phydev].nil?
                 next if @bridges[@nic[:bridge]].nil?

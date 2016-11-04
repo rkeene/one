@@ -101,7 +101,7 @@ fi
 
 # ------------ Create the image in the repository ------------
 
-MKFS_CMD=`mkfs_command /dev/rbd/${RBD_SOURCE} $FSTYPE $SIZE`
+MKFS_CMD='true'
 
 if [ "$RBD_FORMAT" = "2" ]; then
     FORMAT_OPT="--image-format 2"
