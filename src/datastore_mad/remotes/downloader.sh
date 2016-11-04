@@ -35,15 +35,17 @@ function get_type
     if [ "$NO_DECOMPRESS" = "yes" ]; then
         echo "application/octet-stream"
     else
-        command=$1
+        command=("$@")
 
-        ( $command | head -n 1024 | file -b --mime-type - ) 2>/dev/null
+        ( "${command[@]}" | head -n 1024 | file -b --mime-type - ) 2>/dev/null
     fi
 }
 
 # Gets the command needed to decompress an stream.
 function get_decompressor
 {
+    local type
+
     type=$1
 
     case "$type" in
@@ -64,6 +66,8 @@ function get_decompressor
 # - for stdout.
 function decompress
 {
+    local command to
+
     command="$1"
     to="$2"
 
@@ -77,8 +81,12 @@ function decompress
 # Function called to hash a stream. First parameter is the algorithm name.
 function hasher
 {
-    if [ -n "$1" ]; then
-        openssl dgst -$1 | awk '{print $NF}' > $HASH_FILE
+    local algo
+
+    algo="$1"
+
+    if [ -n "$algo" ]; then
+        openssl dgst -$algo | awk '{print $NF}' > $HASH_FILE
     else
         # Needs something consuming stdin or the pipe will break
         cat >/dev/null
@@ -88,9 +96,10 @@ function hasher
 # Unarchives a tar or a zip a file to a directpry with the same name.
 function unarchive
 {
+    local TO command file_type
     TO="$1"
 
-    file_type=$(get_type "cat $TO")
+    file_type=$(get_type cat "$TO")
 
     tmp="$TO"
 
@@ -254,23 +263,26 @@ TO="$2"
 # File used by the hasher function to store the resulting hash
 export HASH_FILE="/tmp/downloader.hash.$$"
 
-GLOBAL_CURL_ARGS="--fail -sS -k -L"
+GLOBAL_CURL_ARGS=(--no-check-certificate --no-verbose --output-document=-)
 
 case "$FROM" in
 http://*|https://*)
-    # -k  so it does not check the certificate
-    # -L  to follow redirects
-    # -sS to hide output except on failure
+    # --no-check-certificate  so it does not check the certificate
+    # --no-verbose to hide output except on failure
+    # --output-document=- to write to stdout
     # --limit_rate to limit the bw
-    curl_args="$GLOBAL_CURL_ARGS $FROM"
+    curl_args=("${GLOBAL_CURL_ARGS[@]}" "$FROM")
 
     if [ -n "$LIMIT_RATE" ]; then
-        curl_args="--limit-rate $LIMIT_RATE $curl_args"
+        curl_args=(--limit-rate=$LIMIT_RATE "${curl_args[@]}")
     fi
 
-    command="curl $curl_args"
+    command=(wget "${curl_args[@]}")
     ;;
 ssh://*)
+    echo 'ssh:// URLs are unsupported' >&2
+    exit -1
+
     # pseudo-url for ssh transfers ssh://user@host:path
     # -l to limit the bw
     ssh_src=${FROM#ssh://}
@@ -281,6 +293,8 @@ ssh://*)
     command="ssh ${ssh_arg[0]} $rmt_cmd"
     ;;
 s3://*)
+    echo 's3:// URLs are unsupported' >&2
+    exit -1
 
     # Read s3 environment
     s3_env
@@ -295,9 +309,15 @@ s3://*)
     command="curl $GLOBAL_CURL_ARGS $curl_args"
     ;;
 rbd://*)
+    echo 'rbd:// URLs are unsupported' >&2
+    exit -1
+
     command="$(get_rbd_cmd $FROM)"
     ;;
 vcenter://*)
+    echo 'vcenter:// URLs are unsupported' >&2
+    exit -1
+
     command="$VAR_LOCATION/remotes/datastore/vcenter_downloader.rb \"$FROM\""
     ;;
 *)
@@ -305,14 +325,14 @@ vcenter://*)
         echo "Cannot read from $FROM" >&2
         exit -1
     fi
-    command="cat $FROM"
+    command=(cat "${FROM}")
     ;;
 esac
 
-file_type=$(get_type "$command")
+file_type=$(get_type "${command[@]}")
 decompressor=$(get_decompressor "$file_type")
 
-eval "$command" | tee >( hasher $HASH_TYPE) | decompress "$decompressor" "$TO"
+"${command[@]}" | tee >( hasher $HASH_TYPE) | decompress "$decompressor" "$TO"
 
 if [ "$?" != "0" -o "$PIPESTATUS" != "0" ]; then
     echo "Error copying" >&2
