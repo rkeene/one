@@ -47,7 +47,7 @@ Snapshots& Snapshots::operator= (const Snapshots& s)
     if (this != &s)
     {
         next_snapshot = s.next_snapshot;
-        active        = s.active;
+        active        = -1;
         disk_id       = s.disk_id;
 
         snapshot_template = s.snapshot_template;
@@ -95,11 +95,6 @@ void Snapshots::init()
         snap[i]->vector_value("ID", id);
 
         snap[i]->vector_value("ACTIVE", current);
-
-        if (current)
-        {
-            active = id;
-        }
 
         if (id >= next_snapshot)
         {
@@ -223,6 +218,7 @@ void Snapshots::delete_snapshot(int id)
 
 int Snapshots::active_snapshot(int id)
 {
+    return 0;
     if (static_cast<int>(id) == active)
     {
         return 0;
