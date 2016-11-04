@@ -1224,6 +1224,11 @@ int LibVirtDriver::deployment_description_kvm(
     // ------------------------------------------------------------------------
     // Raw KVM attributes
     // ------------------------------------------------------------------------
+    /*
+     * Disabled -- we would need to sanitize this attribute to only allow selected
+     * elements
+     */
+#if 0
     num = vm->get_template_attribute("RAW", raw);
 
     for(int i=0; i<num;i++)
@@ -1238,6 +1243,7 @@ int LibVirtDriver::deployment_description_kvm(
             file << "\t" << data << endl;
         }
     }
+#endif
 
     get_default("RAW", default_raw);
 
