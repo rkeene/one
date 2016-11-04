@@ -83,7 +83,23 @@ public:
         {
             return VLAN;
         }
-        else 
+        else if ( ob == "ebtables" )
+        {
+            return EBTABLES;
+        }
+        else if ( ob == "fw" )
+        {
+            return FW;
+        }
+        else if ( ob == "ovswitch" )
+        {
+            return OVSWITCH;
+        }
+        else if ( ob == "vxlan" )
+        {
+            return VXLAN;
+        }
+        else
         {
             return NONE;
         }

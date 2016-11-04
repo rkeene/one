@@ -128,11 +128,48 @@ define(function(require) {
       $('input#vn_mad', context).removeAttr('required');
 
       switch ($(this).val()) {
+      case "dummy":
+        $("div.mode_param.dummy", context).show();
+        $("div.mode_param.dummy [wizard_field]", context).prop('wizard_field_disabled', false);
+
+        $('input#bridge', context).attr('required', '');
+        break;
+      case "fw":
+        $("div.mode_param.fw", context).show();
+        $("div.mode_param.fw [wizard_field]", context).prop('wizard_field_disabled', false);
+
+        $('input#bridge', context).attr('required', '');
+        break;
       case "802.1Q":
         $("div.mode_param.8021Q", context).show();
         $("div.mode_param.8021Q [wizard_field]", context).prop('wizard_field_disabled', false);
 
         $('input#bridge', context).removeAttr('required');
+        break;
+      case "vxlan":
+        $("div.mode_param.vxlan", context).show();
+        $("div.mode_param.vxlan [wizard_field]", context).prop('wizard_field_disabled', false);
+
+        $('input#bridge', context).removeAttr('required');
+        break;
+      case "ebtables":
+        $("div.mode_param.ebtables", context).show();
+        $("div.mode_param.ebtables [wizard_field]", context).prop('wizard_field_disabled', false);
+
+        $('input#bridge', context).attr('required', '');
+        break;
+      case "ovswitch":
+        $("div.mode_param.ovswitch", context).show();
+        $("div.mode_param.ovswitch [wizard_field]", context).prop('wizard_field_disabled', false);
+
+        $('input#bridge', context).attr('required', '');
+        break;
+      case "custom":
+        $("div.mode_param.custom", context).show();
+        $("div.mode_param.custom [wizard_field]", context).prop('wizard_field_disabled', false);
+
+        $('input#bridge', context).removeAttr('required');
+        $('input#vn_mad', context).attr('required', '');
         break;
       }
 

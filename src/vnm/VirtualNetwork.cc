@@ -138,6 +138,8 @@ int VirtualNetwork::insert(SqlDB * db, string& error_str)
 
     erase_template_attribute("PHYDEV", phydev);
 
+    add_template_attribute("PHYDEV", phydev);
+
     // ---- VLAN_ID if not set allocated in VirtualNetworkPool, if needed -----
 
     if (PoolObjectSQL::get_template_attribute("VLAN_ID", vis) && !vis.empty())
@@ -280,6 +282,8 @@ int VirtualNetwork::post_update_template(string& error)
     add_template_attribute("VN_MAD", vn_mad);
 
     erase_template_attribute("PHYDEV", phydev);
+
+    add_template_attribute("PHYDEV", phydev);
 
     remove_template_attribute("AUTOMATIC_VLAN_ID");
 
@@ -460,7 +464,14 @@ string& VirtualNetwork::to_xml_extended(string& xml, bool extended,
         os << "<VN_MAD/>";
     }
 
-    os << "<PHYDEV/>";
+    if (!phydev.empty())
+    {
+        os << "<PHYDEV>" << one_util::escape_xml(phydev) << "</PHYDEV>";
+    }
+    else
+    {
+        os << "<PHYDEV/>";
+    }
 
     if (!vlan_id.empty())
     {
@@ -514,7 +525,7 @@ int VirtualNetwork::from_xml(const string &xml_str)
     rc += perms_from_xml();
 
     xpath(vn_mad, "/VNET/VN_MAD", "");
-    phydev = "";
+    xpath(phydev, "/VNET/PHYDEV", "");
     xpath(vlan_id,"/VNET/VLAN_ID","");
     xpath(parent_vid,"/VNET/PARENT_NETWORK_ID",-1);
     xpath(int_vlan_id_automatic,"/VNET/VLAN_ID_AUTOMATIC",0);
@@ -597,6 +608,11 @@ int VirtualNetwork::nic_attribute(
     if (!vn_mad.empty())
     {
         nic->replace("VN_MAD", vn_mad);
+    }
+
+    if (!phydev.empty())
+    {
+        nic->replace("PHYDEV", phydev);
     }
 
     if (!vlan_id.empty())

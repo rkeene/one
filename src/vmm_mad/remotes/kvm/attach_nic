@@ -36,7 +36,7 @@ fi
 
 DEVICE=$(cat <<EOF
 <interface type='bridge'>
-    <source bridge='u-$BRIDGE'/>
+    <source bridge='$BRIDGE'/>
     <mac address='$MAC'/>
     <target dev='$TARGET'/>
     $MODEL

@@ -119,9 +119,15 @@ http://*|https://*)
     ;;
 
 *)
-    log_error "Not allowed to copy images from $SRC"
-    error_message "Not allowed to copy image file $SRC"
-    exit 1
+    if [ `check_restricted $SRC` -eq 1 ]; then
+        log_error "Not allowed to copy images from $RESTRICTED_DIRS"
+        error_message "Not allowed to copy image file $SRC"
+        exit -1
+    fi
+
+    log "Copying local image $SRC to the image repository"
+
+    DUMP="$COPY_COMMAND"
     ;;
 esac
 
@@ -151,16 +157,5 @@ EOF
 
 ssh_exec_and_log    "$DST_HOST" "$REGISTER_CMD" \
                     "Error registering $RBD_SOURCE in $DST_HOST"
-
-# Ensure the image is specified as "raw" and the size is updated
-## Determine correct size
-SIZE=$[$($RBD info $RBD_SOURCE --format xml | $XPATH /image/size) / (1024 * 1024)]
-(
-	tmpUpdateImageFile="${TMPDIR:-/tmp}/update-image-file-$$${RANDOM}${RANDOM}${RANDOM}.oi"
-	echo 'DRIVER="raw"' > "${tmpUpdateImageFile}"
-	echo 'SIZE="'"${SIZE}"'"' >> "${tmpUpdateImageFile}"
-	oneimage update "${ID}" "${tmpUpdateImageFile}" --append
-	rm -f "${tmpUpdateImageFile}"
-) 2>/dev/null >/dev/null </dev/null
 
 echo "$RBD_SOURCE"
