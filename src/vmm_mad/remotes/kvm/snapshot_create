@@ -22,13 +22,134 @@ source $(dirname $0)/../../scripts_common.sh
 DOMAIN="$1"
 SNAP_ID="$2"
 
-data=`virsh --connect $LIBVIRT_URI snapshot-create-as $DOMAIN`
+data="$(virsh --connect $LIBVIRT_URI snapshot-create-as $DOMAIN 2>&1)"
 
 if [ "$?" = "0" ]; then
     echo "$data" | awk '{print $3}'
-else
-    error_message "Could not create snapshot $NAME for domain $DOMAIN."
-    exit -1
+    exit 0
 fi
+
+function generateSnapshotCommands() {
+	local internalSnapshotName
+	local xml idx
+
+	internalSnapshotName="$1"
+
+	# Get the current configuration
+	xml="$(virsh --connect $LIBVIRT_URI dumpxml $DOMAIN 2>/dev/null)"
+
+	# Process every disk from the XML
+	for idx in {1..128}; do
+		(
+			IFS='' read -r -d '' type
+			IFS='' read -r -d '' device
+			IFS='' read -r -d '' sourceProtocol
+			IFS='' read -r -d '' sourceName
+			IFS='' read -r -d '' sourceFile
+			IFS='' read -r -d '' driverName
+			IFS='' read -r -d '' driverType
+
+			# Skip CD-ROMs from snapshots
+			if [ "${device}" = "cdrom" ]; then
+				exit 0
+			fi
+			if [ -z "${type}" ]; then
+				exit 2
+			fi
+
+			case "${driverType}" in
+				raw)
+					case "${type}" in
+						network)
+							case "${sourceProtocol}" in
+								rbd)
+									echo "rbd snap create ${sourceName}@${internalSnapshotName}"
+									;;
+								*)
+									error_message "Could not create snapshot $NAME for domain $DOMAIN: network disk protocol $sourceProtocol found"
+									exit -1
+									;;
+							esac
+							;;
+						file)
+							error_message "Could not create snapshot $NAME for domain $DOMAIN: raw file found"
+							exit -1
+							;;
+						*)
+							error_message "Could not create snapshot $NAME for domain $DOMAIN: Unsupported libvirt disk type $type found"
+							exit -1
+							;;
+					esac
+					;;
+				qcow2)
+					case "${type}" in
+						network)
+							error_message "Could not create snapshot $NAME for domain $DOMAIN: unsupported qcow2 on network device"
+							exit -1
+							;;
+						file)
+							echo "qemu-img snapshot -c ${internalSnapshotName} $(set | awk -v var="sourceFile" '($0 ~ "^" var "="){ gsub("^" var "=", ""); print }')"
+							;;
+						*)
+							error_message "Could not create snapshot $NAME for domain $DOMAIN: Unsupported libvirt disk type $type found"
+							exit -1
+							;;
+					esac
+					;;
+				*)
+					error_message "Could not create snapshot $NAME for domain $DOMAIN: Unsupported libvirt driver type $driverType found"
+					exit -1
+					;;
+			esac
+		) < <(echo "${xml}" | /var/tmp/one/datastore/xpath.rb \
+			'/domain/devices/disk['"${idx}"']/@type' \
+			'/domain/devices/disk['"${idx}"']/@device' \
+			'/domain/devices/disk['"${idx}"']/source/@protocol' \
+			'/domain/devices/disk['"${idx}"']/source/@name' \
+			'/domain/devices/disk['"${idx}"']/source/@file' \
+			'/domain/devices/disk['"${idx}"']/driver/@name' \
+			'/domain/devices/disk['"${idx}"']/driver/@type')
+
+		case "$?" in
+			0)
+				;;
+			2)
+				break
+				;;
+			*)
+				return 1
+				;;
+		esac
+	done
+}
+
+case "${data}" in
+	*'internal snapshot for disk '*' unsupported for storage type'*)
+		# Take a snapshot directly
+		## Determine the internal name to create
+		internalSnapshotName="one-$(uuidgen -r)"
+
+		## Determine what to run to create the snapshot
+		commandsToRun="$(generateSnapshotCommands "${internalSnapshotName}")" || ( error_message "Could not create snapshot $NAME for domain $DOMAIN."; exit 1 ) || exit -1
+		commandsToRunCount="$(echo "${commandsToRun}" | wc -l | awk '{ print $1 }')"
+
+		## Run the commands, pausing the VM if needed
+		if [ "${commandsToRunCount}" -gt '1' ]; then
+			virsh --connect $LIBVIRT_URI qemu-monitor-command --domain $DOMAIN --hmp --cmd stop >/dev/null
+		fi
+
+		echo "${commandsToRun}" | sudo sh - >&2
+
+		if [ "${commandsToRunCount}" -gt '1' ]; then
+			virsh --connect $LIBVIRT_URI qemu-monitor-command --domain $DOMAIN --hmp --cmd cont >/dev/null
+		fi
+
+		echo "${internalSnapshotName}"
+		;;
+	*)
+		error_message "Could not create snapshot $NAME for domain $DOMAIN."
+ 		exit -1
+		;;
+esac
 
 exit 0

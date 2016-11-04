@@ -22,8 +22,67 @@ source $(dirname $0)/../../scripts_common.sh
 DOMAIN="$1"
 NAME="$2"
 
-exec_and_log \
-    "virsh --connect $LIBVIRT_URI snapshot-delete $DOMAIN $NAME" \
-    "Could not delete snapshot $NAME for domain $DOMAIN."
+# Determine if this snapshot was taken using libvirt or directly
+snapshotType='direct'
+while IFS='' read -r checkName; do
+	if [ "${NAME}" = "${checkName}" ]; then
+		snapshotType='libvirt'
+
+		break
+	fi
+done < <(virsh --connect $LIBVIRT_URI snapshot-list $DOMAIN --name)
+
+case "${snapshotType}" in
+	libvirt)
+		exec_and_log \
+		    "virsh --connect $LIBVIRT_URI snapshot-delete $DOMAIN $NAME" \
+		    "Could not delete snapshot $NAME for domain $DOMAIN."
+		;;
+	direct)
+		# Delete the snapshot from RBDs
+		retval="0"
+		for pool in $(rados lspools); do
+			xml="$(rbd ls -p "${pool}" -l --format xml)"
+
+			idx='1'
+			idxList=()
+			while true; do
+				complete='0'
+				readIdx="${idx}"
+				while IFS='' read -r -d '' checkSnapshot; do
+					if [ -z "${checkSnapshot}" ]; then
+						complete='1'
+
+						break
+					fi
+
+					if [ "${checkSnapshot}" = "${NAME}" ]; then
+						idxList=("${idxList[@]}" "${readIdx}")
+					fi
+					readIdx=$[${readIdx} + 1]
+				done < <(echo "${xml}" | /var/tmp/one/datastore/xpath.rb $(eval echo '/images/snapshot['{${idx}..$[${idx}+256]}']/snapshot'))
+
+				if [ "${complete}" = '1' ]; then
+					break
+				fi
+
+				idx=$[$idx + 257]
+			done
+
+			for idx in "${idxList[@]}"; do
+				read -r -d '' image < <(echo "${xml}" | /var/tmp/one/datastore/xpath.rb '/images/snapshot['"${idx}"']/image')
+				if ! rbd snap rm "${pool}/${image}@${NAME}"; then
+					error_message "Unable to delete RBD snapshot from $DOMAIN: rbd snap rm \"${pool}/${image}@${NAME}\""
+					retval="1"
+				fi
+			done
+		done
+
+		# Delete the snapshot from QCOW2 images
+		## XXX:TODO
+
+		exit "${retval}"
+		;;
+esac
 
 exit 0
