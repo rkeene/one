@@ -103,24 +103,24 @@ done
 
 CONF_LOCATION="$HOME/.one"
 
-if [ -z "$ROOT" ] ; then
-    BIN_LOCATION="/usr/bin"
-    LIB_LOCATION="/usr/lib/one"
-    ETC_LOCATION="/etc/one"
-    LOG_LOCATION="/var/log/one"
-    VAR_LOCATION="/var/lib/one"
+if true ; then
+    BIN_LOCATION="${ROOT}/bin"
+    LIB_LOCATION="${ROOT}/lib/one"
+    ETC_LOCATION="${ROOT}/etc/one"
+    LOG_LOCATION="${ROOT}/var/log/one"
+    VAR_LOCATION="${ROOT}/var/lib/one"
     ONEGATE_LOCATION="$LIB_LOCATION/onegate"
     SUNSTONE_LOCATION="$LIB_LOCATION/sunstone"
     ONEFLOW_LOCATION="$LIB_LOCATION/oneflow"
     SYSTEM_DS_LOCATION="$VAR_LOCATION/datastores/0"
     DEFAULT_DS_LOCATION="$VAR_LOCATION/datastores/1"
-    RUN_LOCATION="/var/run/one"
-    LOCK_LOCATION="/var/lock/one"
-    INCLUDE_LOCATION="/usr/include"
-    SHARE_LOCATION="/usr/share/one"
-    MAN_LOCATION="/usr/share/man/man1"
-    VM_LOCATION="/var/lib/one/vms"
-    DOCS_LOCATION="/usr/share/docs/one"
+    RUN_LOCATION="${ROOT}/var/run/one"
+    LOCK_LOCATION="${ROOT}/var/lock/one"
+    INCLUDE_LOCATION="${ROOT}/include"
+    SHARE_LOCATION="${ROOT}/share/one"
+    MAN_LOCATION="${ROOT}/share/man/man1"
+    VM_LOCATION="${ROOT}/var/lib/one/vms"
+    DOCS_LOCATION="${ROOT}/share/docs/one"
 
     if [ "$CLIENT" = "yes" ]; then
         MAKE_DIRS="$BIN_LOCATION $LIB_LOCATION $ETC_LOCATION"
