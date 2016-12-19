@@ -212,6 +212,13 @@ class OpenNebulaVNC
             host       = vm_resource['MONITORING/ESX_HOST']
         end
 
+        # Update host and port to point to a proxy
+        begin
+            vnc_proxy_info = `aurae-zones-vnc-proxy '#{host}' '#{vnc_port}' '#{vm_zone_id}'`
+            host, vnc_port = vnc_proxy_info.chomp().split(":")
+        rescue Exception => e
+        end
+
         # Generate token random_str: host:port
         random_str = rand(36**20).to_s(36) #random string a-z0-9 length 20
         token = "#{random_str}: #{host}:#{vnc_port}"
