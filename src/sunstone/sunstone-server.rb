@@ -842,7 +842,7 @@ end
 ##############################################################################
 post '/vm/:id/startvnc' do
     vm_id = params[:id]
-    @SunstoneServer.startvnc(vm_id, $vnc)
+    @SunstoneServer.startvnc(vm_id, $vnc, session[:zone_id])
 end
 
 ##############################################################################

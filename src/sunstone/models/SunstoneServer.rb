@@ -287,13 +287,13 @@ class SunstoneServer < CloudServer
     ########################################################################
     # VNC
     ########################################################################
-    def startvnc(id, vnc)
+    def startvnc(id, vnc, zone_id)
         resource = retrieve_resource("vm", id)
         if OpenNebula.is_error?(resource)
             return [404, resource.to_json]
         end
 
-        return vnc.proxy(resource)
+        return vnc.proxy(resource, zone_id)
     end
 
     ########################################################################

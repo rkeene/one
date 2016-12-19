@@ -188,7 +188,7 @@ class OpenNebulaVNC
         true
     end
 
-    def proxy(vm_resource)
+    def proxy(vm_resource, vm_zone_id)
         # Check configurations and VM attributes
         if !is_running?
             return error(400, "VNC Proxy is not running")
@@ -215,7 +215,7 @@ class OpenNebulaVNC
         # Generate token random_str: host:port
         random_str = rand(36**20).to_s(36) #random string a-z0-9 length 20
         token = "#{random_str}: #{host}:#{vnc_port}"
-        token_file = 'one-'+vm_resource['ID']
+        token_file = 'zone-' + vm_zone_id.to_s() + '-one-' + vm_resource['ID']
 
         # Create token file
         begin
