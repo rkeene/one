@@ -370,6 +370,9 @@ module SGIPTables
         ## Allow neighbor solicitations to reach the host
         commands.add :ip6tables, "-A #{chain_in} -p icmpv6 --icmpv6-type 135 -j ACCEPT"
 
+        ## Allow neighbor advertisements to reach the host
+        commands.add :ip6tables, "-A #{chain_in} -p icmpv6 --icmpv6-type 136 -j ACCEPT"
+
         ## Allow routers to send Redirect messages
         commands.add :ip6tables, "-A #{chain_in} -p icmpv6 --icmpv6-type 137 -j ACCEPT"
 
